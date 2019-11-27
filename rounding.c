@@ -55,12 +55,6 @@ void fillCValues(double *cValues, int numC){
   }
 }
 
-void fillIndexArray(int* index) {
-  for (int i = 1; i < size + 1; ++i) {
-    index[i] = i;
-  }
-}
-
 /* This is the function that actually solves the problem. */
 /* It is essentially empty and not functional. */
 /* Your own implementation needs to go in here. */
@@ -69,10 +63,9 @@ int computeSolution(void) {
   const int numX = size * size; // Number of X_nm variables
   const int numC = size; // Number of C_m variables
   const int numR = size; // Number of R_n variables
-  const int numE = size * size; // Number of e_t variables
-  const int numVariables = numC + numR + 2*numX + numE; // this is the number of columns in the matrix for GLPK. 2*numX because of Xnm' and Xnm'' values.
-  double cPrimeValues[numC];
-  double rPrimeValues[numR];
+  const int numVariables = numC + numR + numX;
+  double cValues[numC];
+  double rValues[numR];
   glp_prob *lp;
   int index[numVariables + 1];
   memset(index, 0, sizeof(index));
@@ -84,16 +77,15 @@ int computeSolution(void) {
 
   glp_add_cols(lp, numVariables);
 
-  fillRValues(rPrimeValues, numR);
-  fillCValues(cPrimeValues, numC);
+  fillRValues(rValues, numR);
+  fillCValues(cValues, numC);
 
 /* ADD COLUMN BOUNDS STARTS HERE *********************************************/
   // Add C_m' column variables
   int maxLoopSize = numC;
   for (i=1; i<=maxLoopSize; i++ ) {
-    //*2 as C_m' max and min flow is 2 times greater than C_m because the outgoing of C_m is greater by 2
-    const double lowerBound = 2*myFloor(cPrimeValues[i-1]);
-    const double upperBound = 2*myCeil(cPrimeValues[i-1]);
+    const double lowerBound = myFloor(input[i-1]);
+    const double upperBound = myCeil(input[i-1]);
     if (lowerBound != upperBound) {
       glp_set_col_bnds(lp, i, GLP_DB, lowerBound, upperBound);
     } else {
@@ -103,10 +95,9 @@ int computeSolution(void) {
 
   // Add R_m' column variables
   maxLoopSize += numR;
-  for (j = 0, i = numC; i<= maxLoopSize; ++j ,++i){
-    //*2 as R_n' max and min flow is 2 times greater than max and min of R_n because the outgoing of node R_n is greater by a magnitude of 2 than R_n
-    const double lowerBound = 2*myFloor(rPrimeValues[j]);
-    const double upperBound = 2*myCeil(rPrimeValues[j]);
+  for (j = 0, i = numC+1; i<= maxLoopSize; ++j ,++i){
+    const double lowerBound = myFloor(input[j]);
+    const double upperBound = myCeil(input[j]);
     if (lowerBound != upperBound) {
       glp_set_col_bnds(lp, i, GLP_DB, lowerBound, upperBound);
     } else {
@@ -114,8 +105,8 @@ int computeSolution(void) {
     }
   }
 
-  // Add X_nm' column variables numC and numR along in the column.
-  maxLoopSize += numX;
+  // Add X_nm column variables numC and numR along in the column.
+  maxLoopSize = numC + numR + numX;
   for (j = 0, i = numC + numR + 1; i<=maxLoopSize; ++j, ++i){
     const double lowerBound = myFloor(input[j]);
     const double upperBound = myCeil(input[j]);
@@ -125,35 +116,11 @@ int computeSolution(void) {
       glp_set_col_bnds(lp, i, GLP_FX, lowerBound, upperBound);
     }
   }
-
-  // Add X_nm'' column variables numC, numR, and numX along in the column.
-  maxLoopSize += numX;
-  for (j = 0, i = numC + numR + numX + 1; i<=maxLoopSize; ++j, ++i){
-    const double lowerBound = myFloor(input[j]);
-    const double upperBound = myCeil(input[j]);
-    if (lowerBound != upperBound) {
-      glp_set_col_bnds(lp, i, GLP_DB, lowerBound, upperBound);
-    } else {
-      glp_set_col_bnds(lp, i, GLP_FX, lowerBound, upperBound);
-    }
-  }
-
-  // Add e_t column variables numC, numR, and 2numX along in the column
-  maxLoopSize += numE;
-  for (j = 0, i = numC + numR + 2*numX + 1; i<=maxLoopSize; ++j, ++i){
-    const double lowerBound = 2*myFloor(input[j]);
-    const double upperBound = 2*myCeil(input[j]);
-    if (lowerBound != upperBound) {
-      glp_set_col_bnds(lp, i, GLP_DB, lowerBound, upperBound);
-    } else {
-      glp_set_col_bnds(lp, i, GLP_FX, lowerBound, upperBound);
-    }
-  }
 /* ADD COLUMN BOUNDS ENDS HERE *********************************************/
 
 /* ADD ROW COEFFICIENTS STARTS HERE *******************************************************/
-  // Add C_m coefficients and R_n: C_1' + C_2' + .... + C_m' + R_1 + R_2 + .... + R_n'
-  maxLoopSize = numC + numR;
+  // Add the co-efficient function C_1' + C_2' + ... C_m'
+  maxLoopSize = numC;
   for (i=1; i<= maxLoopSize; i++) {
     glp_set_obj_coef(lp, i, 1.0);
   }
@@ -162,48 +129,12 @@ int computeSolution(void) {
 
 /* ADD ROWS BOUNDS STARTS HERE *******************************************************/
 
-  const int numRows = numC + numR + numX + numE;
+  const int numRows = numC + numR;
   glp_add_rows(lp, numRows);
 
-  // Set bounds for C_m
-  maxLoopSize = numC;
+  // Set bounds of the rows to 0
+  maxLoopSize = numRows;
   for (i = 1; i<=maxLoopSize; ++i){
-    const double lowerBound = 2*myFloor(cPrimeValues[i-1]);
-    const double upperBound = 2*myCeil(cPrimeValues[i-1]);
-    if (lowerBound != upperBound) {
-      glp_set_row_bnds(lp, i, GLP_DB, lowerBound, upperBound);
-    } else {
-      glp_set_row_bnds(lp, i, GLP_FX, lowerBound, upperBound);
-    }
-  }
-
-  // Set bounds for R_n
-  maxLoopSize += numR;
-  for (j=0, i = numC + 1; i<=maxLoopSize; ++i, ++j){
-    const double lowerBound = 2*myFloor(rPrimeValues[j]);
-    const double upperBound = 2*myCeil(rPrimeValues[j]);
-    if (lowerBound != upperBound) {
-      glp_set_row_bnds(lp, i, GLP_DB, lowerBound, upperBound);
-    } else {
-      glp_set_row_bnds(lp, i, GLP_FX, lowerBound, upperBound);
-    }
-  }
-
-  // Set bounds for X_{n,m}
-  maxLoopSize += numX;
-  for (j=0, i=numC + numR + 1; i<= maxLoopSize; ++i, ++j){
-    const double lowerBound = 2*myFloor(input[j]);
-    const double upperBound = 2*myCeil(input[j]);
-    if (lowerBound != upperBound) {
-      glp_set_row_bnds(lp, i, GLP_DB, lowerBound, upperBound);
-    } else {
-      glp_set_row_bnds(lp, i, GLP_FX, lowerBound, upperBound);
-    }
-  }
-
-  // Set bounds for Z_t = 0
-  maxLoopSize += numE;
-  for (i=numC + numR + numX + 1; i<=maxLoopSize; ++i){
     glp_set_row_bnds(lp, i, GLP_FX, 0.0, 0.0);
   }
 
@@ -215,7 +146,6 @@ int computeSolution(void) {
   maxLoopSize = numC;
   for(int ii = 1, i = 1; i<=maxLoopSize; ++i, ++ii){
     index[1] = i, row[i] = 1;
-    // maxSize is 1 + size because there will be 1 C_m' and size number of x_nm' variables
     for (int c = 0, k = 2 ,j = 1 + numC; j<=numC + size; ++j, ++k, c+=3){
       const int indexValue = numC + numR + c + ii;
       index[k] = indexValue, row[indexValue] = -1;
@@ -228,46 +158,11 @@ int computeSolution(void) {
   for (int c = 0, i = numC + 1; i<= maxLoopSize; i++, c += 3) {
     index[1] = i, row[i] = 1;
     for (int k = 2, j = 1; j<= size; ++j, ++k){
-      const int indexValue = numC + numR + numX + c + j;
+      const int indexValue = numC + numR + c + j;
       index[k] = indexValue, row[indexValue] = -1;
     }
     glp_set_mat_row(lp, i, 1 + size, index, row);
   }
-
-  // Set X_{n,m} constraints
-  maxLoopSize = numC + numR + numX;
-  for (i = numC + numR + 1; i <= maxLoopSize; i++){
-    int indexValue = i;
-    index[1] = indexValue, row[indexValue] = 1;
-    indexValue = i + numX;
-    index[2] = indexValue, row[indexValue] = 1;
-    indexValue = i + numX + numX;
-    index[3] = indexValue, row[indexValue] = -1;
-    glp_set_mat_row(lp, i, 3, index, row);
-  }
-
-  // Set Z_t constraints
-  maxLoopSize = numC + numR + numX + numE;
-  for (i = 1 + numC + numR + numX; i<=maxLoopSize; ++i){
-    int indexValue = i - numX;
-    index[1] = indexValue, row[indexValue] = 1;
-    indexValue = i;
-    index[2] = indexValue, row[indexValue] = -1;
-    glp_set_mat_row(lp, i, 2, index, row);
-  }
-
-  // // Set the Omega constraints
-  // int omegaSize = numC + numR + numE;
-  // for (i = 1; i <= numC + numR; ++i){
-  //   int indexValue = i;
-  //   index[i] = indexValue, row[indexValue] = 1;
-  // }
-  // for (i = numC + numR + numX + 1; i <= numVariables; ++i){
-  //   int indexValue = i;
-  //   index[i] = indexValue, row[indexValue] = -1;
-  // }
-  // // Ensure added to the last row.
-  // glp_set_mat_row(lp, numRows, omegaSize, index, row);
 
 /* ADD THE DATA FOR EACH ROW ENDS HERE **************************************************/
 
