@@ -236,7 +236,7 @@ int computeSolution(void) {
 
   // Set X_{n,m} constraints
   maxLoopSize = numC + numR + numX;
-  for (int i = numC + numR + 1; i <= maxLoopSize; i++){
+  for (i = numC + numR + 1; i <= maxLoopSize; i++){
     int indexValue = i;
     index[1] = indexValue, row[indexValue] = 1;
     indexValue = i + numX;
@@ -248,13 +248,26 @@ int computeSolution(void) {
 
   // Set Z_t constraints
   maxLoopSize = numC + numR + numX + numE;
-  for (int i = 1; i<=numE; ++i){
-    int indexValue = i + numC + numR;
+  for (i = 1 + numC + numR + numX; i<=maxLoopSize; ++i){
+    int indexValue = i - numX;
     index[1] = indexValue, row[indexValue] = 1;
-    indexValue = i + numC + numR + numX;
+    indexValue = i;
     index[2] = indexValue, row[indexValue] = -1;
     glp_set_mat_row(lp, i, 2, index, row);
   }
+
+  // // Set the Omega constraints
+  // int omegaSize = numC + numR + numE;
+  // for (i = 1; i <= numC + numR; ++i){
+  //   int indexValue = i;
+  //   index[i] = indexValue, row[indexValue] = 1;
+  // }
+  // for (i = numC + numR + numX + 1; i <= numVariables; ++i){
+  //   int indexValue = i;
+  //   index[i] = indexValue, row[indexValue] = -1;
+  // }
+  // // Ensure added to the last row.
+  // glp_set_mat_row(lp, numRows, omegaSize, index, row);
 
 /* ADD THE DATA FOR EACH ROW ENDS HERE **************************************************/
 
