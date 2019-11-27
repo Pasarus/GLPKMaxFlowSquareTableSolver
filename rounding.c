@@ -263,8 +263,8 @@ int computeSolution(void) {
 
   // Fill in solution
   double perfectValue = glp_get_obj_val(lp);
-  for (int i = numC + numR + 1; i<=numC + numR + numX; ++i) {
-      solution[i-1] = glp_get_row_prim(lp, i);
+  for (j = 0, i = numC + numR + 1; i<=numC + numR + numX; ++i, ++j) {
+      solution[j] = glp_get_col_prim(lp, i);
   }
 
   // glp_delete_prob(lp); // release memory used for LP
