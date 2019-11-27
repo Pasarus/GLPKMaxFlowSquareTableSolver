@@ -141,8 +141,8 @@ int computeSolution(void) {
   // Add e_t column variables numC, numR, and 2numX along in the column
   maxLoopSize += numE;
   for (j = 0, i = numC + numR + 2*numX + 1; i<=maxLoopSize; ++j, ++i){
-    const double lowerBound = myFloor(2*input[j]);
-    const double upperBound = myCeil(2*input[j]);
+    const double lowerBound = 2*myFloor(input[j]);
+    const double upperBound = 2*myCeil(input[j]);
     if (lowerBound != upperBound) {
       glp_set_col_bnds(lp, i, GLP_DB, lowerBound, upperBound);
     } else {
@@ -213,22 +213,22 @@ int computeSolution(void) {
 
   // Set C_m constraints
   maxLoopSize = numC;
-  for(int c = 0, i = 1; i<=maxLoopSize; ++i, c+= 3){
+  for(int ii = 1, i = 1; i<=maxLoopSize; ++i, ++ii){
     index[1] = i, row[i] = 1;
     // maxSize is 1 + size because there will be 1 C_m' and size number of x_nm' variables
-    for (j = 2; j<=1 + size; ++j){
-      const int indexValue = numC + numR + j -1 + c;
-      index[j] = indexValue, row[indexValue] = -1;
+    for (int c = 0, k = 2 ,j = 1 + numC; j<=numC + size; ++j, ++k, c+=3){
+      const int indexValue = numC + numR + c + ii;
+      index[k] = indexValue, row[indexValue] = -1;
     }
     glp_set_mat_row(lp, i, 1 + size, index, row);
   }
 
   // Set R_n constraints
   maxLoopSize = numC + numR;
-  for (int ii = 1, i = numC + 1; i<= maxLoopSize; i++, ii++) {
+  for (int c = 0, i = numC + 1; i<= maxLoopSize; i++, c += 3) {
     index[1] = i, row[i] = 1;
-    for (int c = 0, k = 2, j = 1 + numC; j<= numC + size; ++j, ++k, c+=3){
-      const int indexValue = numC + numR + numX + c + ii;
+    for (int k = 2, j = 1; j<= size; ++j, ++k){
+      const int indexValue = numC + numR + numX + c + j;
       index[k] = indexValue, row[indexValue] = -1;
     }
     glp_set_mat_row(lp, i, 1 + size, index, row);
