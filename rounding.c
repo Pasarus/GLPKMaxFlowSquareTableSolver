@@ -27,6 +27,7 @@ void printMatrix(char *title, double *matrix); /* print a matrix */
 void fillRValues(double *, int);
 void fillCValues(double *, int);
 
+// Calculate the sum values of the rows and add them to the rValues array (it's an output parameter)
 void fillRValues(double* rValues, int numR){
   long newSize = size;
   long j = 0, i;
@@ -40,6 +41,7 @@ void fillRValues(double* rValues, int numR){
   }
 }
 
+// Calculate the sum values of the columns and add them to the cValues array (it's an output parameter)
 void fillCValues(double *cValues, int numC){
   int lastJPos = 0;
   int newSize = size;
@@ -55,14 +57,6 @@ void fillCValues(double *cValues, int numC){
   }
 }
 
-double sumArray(double arr[], int n)  {  
-    double sum = 0;  
-    for (int i = 0; i < n; i++){
-      sum += arr[i];  
-    }
-    return sum;  
-}
-
 /* This is the function that actually solves the problem. */
 /* It is essentially empty and not functional. */
 /* Your own implementation needs to go in here. */
@@ -72,8 +66,11 @@ int computeSolution(void) {
   const int numC = size; // Number of C_m variables
   const int numR = size; // Number of R_n variables
   const int numVariables = numC + numR + numX;
+  int indexValue;
   double cValues[numC];
   double rValues[numR];
+  double lowerBound;
+  double upperBound;
   glp_prob *lp;
   int index[numVariables + 1];
   memset(index, 0, sizeof(index));
@@ -88,12 +85,11 @@ int computeSolution(void) {
   fillRValues(rValues, numR);
   fillCValues(cValues, numC);
 
-/* ADD COLUMN BOUNDS STARTS HERE *********************************************/
   // Add C_m' column variables
   int maxLoopSize = numC;
   for (i=1; i<=maxLoopSize; i++ ) {
-    const double lowerBound = myFloor(cValues[i-1]);
-    const double upperBound = myCeil(cValues[i-1]);
+    lowerBound = myFloor(cValues[i-1]);
+    upperBound = myCeil(cValues[i-1]);
     if (lowerBound != upperBound) {
       glp_set_col_bnds(lp, i, GLP_DB, lowerBound, upperBound);
     } else {
@@ -104,8 +100,8 @@ int computeSolution(void) {
   // Add R_m' column variables
   maxLoopSize += numR;
   for (j = 0, i = numC+1; i<= maxLoopSize; ++j ,++i){
-    const double lowerBound = myFloor(rValues[j]);
-    const double upperBound = myCeil(rValues[j]);
+    lowerBound = myFloor(rValues[j]);
+    upperBound = myCeil(rValues[j]);
     if (lowerBound != upperBound) {
       glp_set_col_bnds(lp, i, GLP_DB, lowerBound, upperBound);
     } else {
@@ -116,8 +112,8 @@ int computeSolution(void) {
   // Add X_nm column variables numC and numR along in the column.
   maxLoopSize = numC + numR + numX;
   for (j = 0, i = numC + numR + 1; i<=maxLoopSize; ++j, ++i){
-    const double lowerBound = myFloor(input[j]);
-    const double upperBound = myCeil(input[j]);
+    lowerBound = myFloor(input[j]);
+    upperBound = myCeil(input[j]);
     if (lowerBound != upperBound) {
       glp_set_col_bnds(lp, i, GLP_DB, lowerBound, upperBound);
     } else {
@@ -125,17 +121,19 @@ int computeSolution(void) {
     }
   }
 
-  // Add the co-efficient function C_1' + C_2' + ... C_m'
+  // Set all objective coefficient variables to 0
   maxLoopSize = numC + numR + numX;
   for (i=1; i<= maxLoopSize; i++) {
     glp_set_obj_coef(lp, i, 0.0);
   }
 
+  // Overwrite all C_m' variables that 
   maxLoopSize = numC;
   for (i=1; i<= maxLoopSize; i++) {
     glp_set_obj_coef(lp, i, 1.0);
   }
 
+  // Calculate number of rows and 
   const int numRows = numC + numR;
   glp_add_rows(lp, numRows);
 
@@ -150,7 +148,7 @@ int computeSolution(void) {
   for(int ii = 1, i = 1; i<=maxLoopSize; ++i, ++ii){
     index[1] = i, row[1] = 1.0;
     for (int c = 0, k = 2 ,j = 1 + numC; j<=numC + size; ++j, ++k, c+=size){
-      const int indexValue = numC + numR + c + ii;
+      indexValue = numC + numR + c + ii;
       index[k] = indexValue; row[k] = -1.0;
     }
     glp_set_mat_row(lp, i, 1 + size, index, row);
@@ -161,7 +159,7 @@ int computeSolution(void) {
   for (int c = 0, i = numC + 1; i<= maxLoopSize; i++, c += size) {
     index[1] = i, row[1] = 1.0;
     for (int k = 2, j = 1; j<= size; ++j, ++k){
-      const int indexValue = numC + numR + c + j;
+      indexValue = numC + numR + c + j;
       index[k] = indexValue, row[k] = -1.0;
     }
     glp_set_mat_row(lp, i, 1 + size, index, row);
@@ -170,24 +168,17 @@ int computeSolution(void) {
   glp_term_out(0); // switch off debug output from GLPK 
 
   // A return value of 0 means success!
-  int returnValue = glp_simplex(lp, NULL);
+  int returnValue = glp_simplex(lp, NULL); // calculate the linear thing
   int success = 0 == returnValue;
 
   // Fill in solution
-  double perfectValue = glp_get_obj_val(lp);
   for (j = 0, i = numC + numR + 1; i<=numC + numR + numX; ++i, ++j) {
       solution[j] = glp_get_col_prim(lp, i);
   }
 
-  double rowVals[numRows+1];
-  memset(rowVals, 0.0, sizeof(rowVals));
-  for (i = 1; i<=numRows; ++i){
-    rowVals[i] = glp_get_col_prim(lp, i);
-  }
-
   glp_delete_prob(lp); // release memory used for LP
 
-  return success; /* This is not always correct, of course, and needs to be changed. */
+  return success;
 }
 
 /* YOU SHOULD NOT CHANGE ANYTHING BELOW THIS LINE! */
