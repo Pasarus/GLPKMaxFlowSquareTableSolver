@@ -145,10 +145,10 @@ int computeSolution(void) {
 
   // Set C_m constraints
   maxLoopSize = numC;
-  for(int ii = 1, i = 1; i<=maxLoopSize; ++i, ++ii){
+  for(i = 1; i<=maxLoopSize; ++i){
     index[1] = i, row[1] = 1.0;
     for (int c = 0, k = 2 ,j = 1 + numC; j<=numC + size; ++j, ++k, c+=size){
-      indexValue = numC + numR + c + ii;
+      indexValue = numC + numR + c + i;
       index[k] = indexValue; row[k] = -1.0;
     }
     glp_set_mat_row(lp, i, 1 + size, index, row);
