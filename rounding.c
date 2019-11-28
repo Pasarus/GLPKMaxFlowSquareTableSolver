@@ -28,15 +28,14 @@ void fillRValues(double *, int);
 void fillCValues(double *, int);
 
 void fillRValues(double* rValues, int numR){
-  int lastJPos = 0;
-  int newSize = size;
-  for (int i = 0; i< numR; ++i){
+  long newSize = size;
+  long j = 0, i;
+  for (i = 0; i < numR; ++i){
     double totalOfRows = 0;
-    for (int j = lastJPos; j<newSize; ++j){
+    for (; j<newSize; ++j){
       totalOfRows += input[j];
-      lastJPos = j+1;
     }
-    newSize = newSize + lastJPos;
+    newSize = newSize + numR;
     rValues[i] = totalOfRows;
   }
 }
@@ -54,6 +53,14 @@ void fillCValues(double *cValues, int numC){
     newSize = newSize + lastJPos;
     cValues[i] = totalOfRows;
   }
+}
+
+double sumArray(double arr[], int n)  {  
+    double sum = 0;  
+    for (int i = 0; i < n; i++){
+      sum += arr[i];  
+    }
+    return sum;  
 }
 
 /* This is the function that actually solves the problem. */
@@ -142,26 +149,16 @@ int computeSolution(void) {
   maxLoopSize = numC;
   for(int ii = 1, i = 1; i<=maxLoopSize; ++i, ++ii){
     index[1] = i, row[1] = 1.0;
-    for (int c = 0, k = 2 ,j = 1 + numC; j<=numC + size; ++j, ++k, c+=3){
+    for (int c = 0, k = 2 ,j = 1 + numC; j<=numC + size; ++j, ++k, c+=size){
       const int indexValue = numC + numR + c + ii;
       index[k] = indexValue; row[k] = -1.0;
     }
-    for ( j=1; j<1+size; j++ ) {
-    fprintf(stdout, "(%d: %e) ", index[j], row[j]);
-    }
-    fprintf(stdout, "\n");
     glp_set_mat_row(lp, i, 1 + size, index, row);
-
-    int debugCols = glp_get_mat_row(lp, i, index, row);
-    for ( j=1; j<=debugCols; j++ ) {
-    fprintf(stdout, "(%d: %e) ", index[j], row[j]);
-    }
-    fflush(stdout);
   }
 
   // Set R_n constraints
   maxLoopSize = numC + numR;
-  for (int c = 0, i = numC + 1; i<= maxLoopSize; i++, c += 3) {
+  for (int c = 0, i = numC + 1; i<= maxLoopSize; i++, c += size) {
     index[1] = i, row[1] = 1.0;
     for (int k = 2, j = 1; j<= size; ++j, ++k){
       const int indexValue = numC + numR + c + j;
@@ -170,92 +167,27 @@ int computeSolution(void) {
     glp_set_mat_row(lp, i, 1 + size, index, row);
   }
 
-/* print the LP as stored by the LP solver */
-fprintf(stdout, "DEBUG: LP name: %s\n", glp_get_prob_name(lp));
-if ( glp_get_obj_dir(lp) == GLP_MIN ) {
-fprintf(stdout, "DEBUG: LP is to be minimised\n");
-} else {
-fprintf(stdout, "DEBUG: LP is to be maximised\n");
-}
+  glp_term_out(0); // switch off debug output from GLPK 
 
-int debugRows = glp_get_num_rows(lp);
-int debugCols = glp_get_num_cols(lp);
-
-fprintf(stdout, "DEBUG: Objective function: ");
-for ( i=1; i<=debugRows; i++ ) {
-fprintf(stdout, " + (%lf)x_%d", glp_get_obj_coef(lp, i), i);
-}
-fprintf(stdout, " + %lf\n", glp_get_obj_coef(lp, 0));
-
-fprintf(stdout, "DEBUG: LP has %d rows and %d columns\n",
-debugRows, debugCols);
-for ( i=1; i<=debugRows; i++ ) {
-switch ( glp_get_row_type(lp, i) ) {
-case GLP_FR: fprintf(stdout, "DEBUG: row %d is free (%e, %e)\n",
-i, glp_get_row_lb(lp, i), glp_get_row_ub(lp, i));
-break;
-case GLP_LO: fprintf(stdout, "DEBUG: row %d has lower bound (%e, %e)\n",
-i, glp_get_row_lb(lp, i), glp_get_row_ub(lp, i));
-break;
-case GLP_UP: fprintf(stdout, "DEBUG: row %d has upper bound (%e, %e)\n",
-i, glp_get_row_lb(lp, i), glp_get_row_ub(lp, i));
-break;
-case GLP_DB: fprintf(stdout, "DEBUG: row %d is double-bounded (%e, %e)\n",
-i, glp_get_row_lb(lp, i), glp_get_row_ub(lp, i));;
-break;
-case GLP_FX: fprintf(stdout, "DEBUG: row %d is fixed (%e, %e)\n",
-i, glp_get_row_lb(lp, i), glp_get_row_ub(lp, i));
-break;
-default: fprintf(stdout, "DEBUG: row %d has unknown type (%e, %e)\n",
-i, glp_get_row_lb(lp, i), glp_get_row_ub(lp, i));
-}
-}
-for ( i=1; i<=debugCols; i++ ) {
-switch ( glp_get_col_type(lp, i) ) {
-case GLP_FR: fprintf(stdout, "DEBUG: column %d is free (%e, %e)\n",
-i, glp_get_col_lb(lp, i), glp_get_col_ub(lp, i));
-break;
-case GLP_LO: fprintf(stdout, "DEBUG: column %d has lower bound (%e, %e)\n",
-i, glp_get_col_lb(lp, i), glp_get_col_ub(lp, i));
-break;
-case GLP_UP: fprintf(stdout, "DEBUG: column %d has upper bound (%e, %e)\n",
-i, glp_get_col_lb(lp, i), glp_get_col_ub(lp, i));
-break;
-case GLP_DB: fprintf(stdout, "DEBUG: column %d is double-bounded (%e, %e)\n",
-i, glp_get_col_lb(lp, i), glp_get_col_ub(lp, i));;
-break;
-case GLP_FX: fprintf(stdout, "DEBUG: column %d is fixed (%e, %e)\n",
-i, glp_get_col_lb(lp, i), glp_get_col_ub(lp, i));
-break;
-default: fprintf(stdout, "DEBUG: column %d has unknown type (%e, %e)\n",
-i, glp_get_col_lb(lp, i), glp_get_col_ub(lp, i));
-}
-}
-fprintf(stdout, "DEBUG: Constraint matrix follows:\n");
-for ( i=1; i<=debugRows; i++ ) {
-debugCols=glp_get_mat_row(lp, i, index, row);
-for ( j=1; j<=debugCols; j++ ) {
-fprintf(stdout, "(%d: %e) ", index[j], row[j]);
-}
-fprintf(stdout, "\n");
-}
-
-  glp_term_out(1); // switch off debug output from GLPK 
-  glp_simplex(lp, NULL);
+  // A return value of 0 means success!
+  int returnValue = glp_simplex(lp, NULL);
+  int success = 0 == returnValue;
 
   // Fill in solution
   double perfectValue = glp_get_obj_val(lp);
   for (j = 0, i = numC + numR + 1; i<=numC + numR + numX; ++i, ++j) {
       solution[j] = glp_get_col_prim(lp, i);
   }
+
   double rowVals[numRows+1];
+  memset(rowVals, 0.0, sizeof(rowVals));
   for (i = 1; i<=numRows; ++i){
-    rowVals[i] = glp_get_row_prim(lp, i);
+    rowVals[i] = glp_get_col_prim(lp, i);
   }
 
   glp_delete_prob(lp); // release memory used for LP
 
-  return 1; /* This is not always correct, of course, and needs to be changed. */
+  return success; /* This is not always correct, of course, and needs to be changed. */
 }
 
 /* YOU SHOULD NOT CHANGE ANYTHING BELOW THIS LINE! */
